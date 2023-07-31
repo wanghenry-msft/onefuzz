@@ -3,7 +3,7 @@
 
 use anyhow::{format_err, Context, Result};
 use clap::Parser;
-use srcview::{ModOff, Report, SrcLine, SrcView};
+use srcview::{ModOff, Report, SrcView, SrcLine};
 use std::fs::{self, OpenOptions};
 use std::io::{stdout, BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -167,7 +167,15 @@ fn srcloc(opts: SrcLocOpt) -> Result<()> {
     for modoff in &modoffs {
         print!(" +{:04x} ", modoff.offset);
         match srcview.modoff(modoff) {
-            Some(srcloc) => println!("{srcloc}"),
+            Some(locs) => {
+                for (ix, line) in locs.enumerate() {
+                    if ix > 0 {
+                        print!(", ");
+                    }
+                    print!("{line}");
+                }
+                println!();
+            }
             None => println!(),
         }
     }
@@ -209,7 +217,8 @@ fn generate_report(
     // Convert our ModOffs to SrcLine so we can draw it
     let coverage: Vec<SrcLine> = modoffs
         .into_iter()
-        .filter_map(|m| srcview.modoff(&m))
+        .filter_map(|m| srcview.modoff(&m).map(|e| e.cloned()))
+        .flatten()
         .collect();
 
     // Generate our report, filtering on our example path
